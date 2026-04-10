@@ -29,3 +29,26 @@ impl ClawRegistry {
         claw.execute(args)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::claws::shell::ShellClaw;
+    use crate::claws::fs::FsClaw;
+    use crate::claws::net::NetClaw;
+    use crate::claws::process::ProcessClaw;
+    use serde_json::json;
+
+    #[test]
+    fn test_registry_register_and_execute() {
+        let mut registry = ClawRegistry::new();
+        registry.register(ShellClaw);
+
+        // Execute shell successfully
+        let res = registry.execute("shell", json!({"bin":"echo","argv":["hi"]})).unwrap();
+        assert!(res.get("stdout").and_then(|v| v.as_str()).unwrap().contains("hi"));
+
+        // Unknown claw
+        assert!(registry.execute("unknown", json!({})).is_err());
+    }
+}

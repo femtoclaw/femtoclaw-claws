@@ -14,10 +14,20 @@ impl Claw for ProcessClaw {
 
     fn execute(&self, args: Value) -> Result<Value> {
         let program = args["program"].as_str().ok_or_else(|| anyhow::anyhow!("missing program"))?;
-        let output = Command::new(program).output()?;
+        // Optional "args" array; if absent, no arguments.
+        let args_vec: Vec<String> = args["args"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let output = Command::new(program).args(args_vec).output()?;
         Ok(json!({
             "stdout": String::from_utf8_lossy(&output.stdout),
-            "status": output.status.code()
+            "stderr": String::from_utf8_lossy(&output.stderr),
+            "status": output.status.code(),
         }))
     }
 }
