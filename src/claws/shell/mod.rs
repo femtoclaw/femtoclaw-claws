@@ -1,7 +1,7 @@
-use anyhow::Result;
-use serde_json::{Value, json};
-use std::process::Command;
 use crate::core::Claw;
+use anyhow::Result;
+use serde_json::{json, Value};
+use std::process::Command;
 
 /// ShellClaw — synchronous command execution with bin + argv.
 ///
@@ -15,7 +15,9 @@ use crate::core::Claw;
 pub struct ShellClaw;
 
 impl Claw for ShellClaw {
-    fn name(&self) -> &'static str { "shell" }
+    fn name(&self) -> &'static str {
+        "shell"
+    }
 
     fn description(&self) -> &'static str {
         "Allowlisted argv process execution (no shell interpolation)."
@@ -67,6 +69,9 @@ impl Claw for ShellClaw {
         if bin.is_empty() {
             return Err(anyhow::anyhow!("shell: bin cannot be empty"));
         }
+        if !shell_allowlist().iter().any(|allowed| allowed == &bin) {
+            return Err(anyhow::anyhow!("shell: bin not allowed"));
+        }
         if argv.len() > 16 {
             return Err(anyhow::anyhow!("shell: too many argv items (max 16)"));
         }
@@ -100,5 +105,52 @@ impl Claw for ShellClaw {
             "stderr": err,
             "exit_code": output.status.code(),
         }))
+    }
+}
+
+fn shell_allowlist() -> Vec<String> {
+    std::env::var("FEMTO_SHELL_ALLOWLIST")
+        .ok()
+        .map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .filter(|entries: &Vec<String>| !entries.is_empty())
+        .unwrap_or_else(|| {
+            vec![
+                "ls".to_string(),
+                "cat".to_string(),
+                "pwd".to_string(),
+                "whoami".to_string(),
+                "git".to_string(),
+                "echo".to_string(),
+                "head".to_string(),
+                "tail".to_string(),
+                "wc".to_string(),
+                "grep".to_string(),
+                "powershell".to_string(),
+                "powershell.exe".to_string(),
+                "notepad".to_string(),
+                "notepad.exe".to_string(),
+            ]
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ShellClaw;
+    use crate::core::Claw;
+    use serde_json::json;
+
+    #[test]
+    fn rejects_unallowlisted_shell_bin() {
+        let result = ShellClaw.execute(json!({
+            "bin": "python",
+            "argv": ["-V"]
+        }));
+        assert!(result.is_err());
     }
 }

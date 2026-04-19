@@ -16,7 +16,9 @@ pub struct ClawRegistry {
 
 impl ClawRegistry {
     pub fn new() -> Self {
-        Self { claws: HashMap::new() }
+        Self {
+            claws: HashMap::new(),
+        }
     }
 
     pub fn register<C: Claw + 'static>(&mut self, claw: C) {
@@ -24,7 +26,9 @@ impl ClawRegistry {
     }
 
     pub fn execute(&self, name: &str, args: Value) -> Result<Value> {
-        let claw = self.claws.get(name)
+        let claw = self
+            .claws
+            .get(name)
             .ok_or_else(|| anyhow::anyhow!("claw not found"))?;
         claw.execute(args)
     }
@@ -34,9 +38,6 @@ impl ClawRegistry {
 mod tests {
     use super::*;
     use crate::claws::shell::ShellClaw;
-    use crate::claws::fs::FsClaw;
-    use crate::claws::net::NetClaw;
-    use crate::claws::process::ProcessClaw;
     use serde_json::json;
 
     #[test]
@@ -45,8 +46,14 @@ mod tests {
         registry.register(ShellClaw);
 
         // Execute shell successfully
-        let res = registry.execute("shell", json!({"bin":"echo","argv":["hi"]})).unwrap();
-        assert!(res.get("stdout").and_then(|v| v.as_str()).unwrap().contains("hi"));
+        let res = registry
+            .execute("shell", json!({"bin":"echo","argv":["hi"]}))
+            .unwrap();
+        assert!(res
+            .get("stdout")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .contains("hi"));
 
         // Unknown claw
         assert!(registry.execute("unknown", json!({})).is_err());
